@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const cors = require("cors");
 require("dotenv").config();
@@ -24,6 +24,7 @@ async function run() {
 
     const database = client.db("dashboard_fetch_bills");
     const logsCollection = database.collection("logs");
+    const usersCollection = database.collection('users');
 
     console.log("Connected");
 
@@ -39,6 +40,56 @@ async function run() {
       const logs = await cursor.toArray();
       res.json(logs);
     });
+
+    app.delete('/deleteItem/:id', (req, res) => {
+      const id = new ObjectId(req.params.id);
+      console.log('delete this ', id);
+      const result = logsCollection.findOneAndDelete({ _id: id });
+      res.json(result);
+  })
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const result = await usersCollection.insertOne(user);
+      // console.log(result);
+      res.json(result);
+  })
+
+  app.put('/users', async (req, res) => {
+      const user = req.body;
+      // console.log(user)
+      const filter = { email: user.email };
+      const options = { upsert: true };
+      const updateDoc = { $set: user };
+      const result = await usersCollection.updateOne(filter, updateDoc, options);
+      res.json(result);
+  })
+
+  app.put('/users/admin', async (req, res) => {
+      const user = req.body;
+const result = await usersCollection.findOne({ email: user.email });
+if(result?.role === 'admin'){
+  const filter = { email: user.email };
+  const updateDoc = { $set: { role: 'admin' } };
+  const result = await usersCollection.updateOne(filter, updateDoc);
+  res.json(result);
+}
+      // console.log('admin verified', result)
+  })
+
+  app.get('/users/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      let isAdmin = false;
+      if (user?.role === 'admin') {
+          isAdmin = true;
+      }
+      res.json({ admin: isAdmin });
+      // console.log({ admin: isAdmin })
+  })
+
   } finally {
     // await client.close();
   }
